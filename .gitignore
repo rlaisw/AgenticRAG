@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+dist/
+*.egg-info/
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+*.log
+.env*
+.cocoindex_code/target_sqlite.db
+.cocoindex_code/cocoindex.db/
