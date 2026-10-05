@@ -11,3 +11,7 @@ dist/
 .env*
 .cocoindex_code/target_sqlite.db
 .cocoindex_code/cocoindex.db/
+
+# Generated test fixtures (binary; regenerate via repo docs)
+specs/001-agentic-rag-mcp/fixtures/
+!specs/001-agentic-rag-mcp/fixtures/README.md
