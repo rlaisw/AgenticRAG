@@ -109,7 +109,13 @@ def transcribe(path: Path, model_size: str = "base") -> str:
     except ImportError as exc:
         raise ParseSkipped("audio support not installed (pip install .[audio])") from exc
     model = WhisperModel(model_size, device="cpu", compute_type="int8")
-    segments, _info = model.transcribe(str(path))
+    try:
+        segments, _info = model.transcribe(str(path))
+    except TypeError as exc:
+        # faster-whisper + new PyAV: metadata_errors kwarg removed upstream
+        raise ParseSkipped(f"audio decode unsupported: {path.name} ({exc})") from exc
+    except Exception as exc:
+        raise ParseSkipped(f"audio unreadable: {path.name} ({exc.__class__.__name__})") from exc
     text = " ".join(seg.text for seg in segments).strip()
     if not text:
         raise ParseSkipped(f"no speech detected: {path.name}")

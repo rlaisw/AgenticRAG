@@ -18,7 +18,11 @@ class LocalFolderSource:
 
     def scan(self) -> list[Path]:
         exts = {".pdf", ".docx", ".xlsx", ".pptx", ".mp3", ".wav", ".m4a"}
-        return sorted(p for p in self.path.rglob("*") if p.suffix.lower() in exts)
+        return sorted(
+            p
+            for p in self.path.rglob("*")
+            if p.suffix.lower() in exts and not any(part.startswith(".") for part in p.parts)
+        )
 
     def read_item(self, path: Path) -> tuple[str, str]:
         """Returns (extracted_text, media_type). Raises ParseSkipped on failure."""
