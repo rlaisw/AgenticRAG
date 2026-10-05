@@ -63,6 +63,8 @@ class Config:
     web_exa_key: str = ""
     web_searxng_url: str = ""
     graphify_enabled: bool = False
+    mcp_host: str = "127.0.0.1"
+    mcp_port: int = 8811
     state_db: Path = STATE_DB
     vector_dir: Path = VECTOR_DIR
     raw: dict[str, Any] = field(default_factory=dict)
@@ -95,6 +97,8 @@ def load_config(path: Path | None = None) -> Config:
         web_exa_key=_get(raw, "web", "exa", "api_key", default=""),
         web_searxng_url=_get(raw, "web", "searxng", "url", default=""),
         graphify_enabled=bool(_get(raw, "features", "graphify", default=False)),
+        mcp_host=_get(raw, "server", "host", default="127.0.0.1"),
+        mcp_port=int(_get(raw, "server", "port", default=8811)),
         raw=raw,
     )
     cfg.state_db = Path(_get(raw, "storage", "state_db", default=str(STATE_DB))).expanduser()

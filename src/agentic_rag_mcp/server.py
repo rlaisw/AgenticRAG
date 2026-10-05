@@ -50,7 +50,7 @@ def build_server(cfg: Config | None = None) -> FastMCP:
         ]
     agent = ReflectionAgent(tools=agent_tools, max_iterations=cfg.max_iterations)
 
-    mcp = FastMCP("agentic-rag-mcp")
+    mcp = FastMCP("agentic-rag-mcp", host=cfg.mcp_host, port=cfg.mcp_port)
 
     def degraded_sources() -> list[str]:
         return [s["id"] for s in state.list_sources() if s["health"] != "healthy"]
@@ -177,10 +177,19 @@ def build_server(cfg: Config | None = None) -> FastMCP:
 def main() -> None:
     parser = argparse.ArgumentParser(prog="agentic-rag-mcp")
     parser.add_argument("--init", action="store_true", help="write default config and exit")
+    parser.add_argument("--transport", choices=["stdio", "streamable-http"], default="stdio")
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--port", type=int, default=8811)
     args, _unknown = parser.parse_known_args()
     if args.init:
         path = init_config()
         print(f"config written: {path}")
         return
     logging.basicConfig(level=logging.INFO)
-    build_server().run()
+    cfg = load_config()
+    mcp = build_server(cfg)
+    if args.transport == "streamable-http":
+        print(f"agentic-rag-mcp MCP endpoint: http://{cfg.mcp_host}:{cfg.mcp_port}/mcp")
+        mcp.run(transport="streamable-http")
+    else:
+        mcp.run()
