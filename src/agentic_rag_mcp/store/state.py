@@ -97,7 +97,10 @@ class StateStore:
         source_id: str,
         locator: str,
     ) -> tuple[str, str]:
-        """Returns (document_id, outcome) where outcome is created|updated|linked."""
+        """Returns (document_id, outcome, orphan_id): outcome is created|updated
+        (updated = content seen before, or content changed at an existing origin);
+        orphan_id is the previous document evicted when a locator's content changed
+        and the old document lost its last origin — the caller must drop its vectors."""
         now = _now()
         with self._conn() as conn:
             row = conn.execute(
@@ -123,15 +126,35 @@ class StateStore:
                 "UPDATE origins SET last_seen_at = ? WHERE source_id = ? AND locator = ?",
                 (now, source_id, locator),
             ).rowcount
-            if not linked:
+            orphan_id = None
+            prev = conn.execute(
+                "SELECT document_id FROM origins WHERE source_id = ? AND locator = ?",
+                (source_id, locator),
+            ).fetchone()
+            if prev and prev["document_id"] != doc_id:
+                # content changed at this locator: re-point the origin, evict the
+                # old document if it lost its last origin (bug fix — old chunks
+                # previously lingered in the vector store as stale results)
+                old_id = prev["document_id"]
+                conn.execute(
+                    "UPDATE origins SET document_id = ?, last_seen_at = ?"
+                    " WHERE source_id = ? AND locator = ?",
+                    (doc_id, now, source_id, locator),
+                )
+                remaining = conn.execute(
+                    "SELECT COUNT(*) AS n FROM origins WHERE document_id = ?", (old_id,)
+                ).fetchone()["n"]
+                if remaining == 0:
+                    conn.execute("DELETE FROM documents WHERE id = ?", (old_id,))
+                    orphan_id = old_id
+                outcome = "updated"
+            elif not linked:
                 conn.execute(
                     "INSERT INTO origins (document_id, source_id, locator, last_seen_at)"
                     " VALUES (?,?,?,?)",
                     (doc_id, source_id, locator, now),
                 )
-                if outcome == "updated":
-                    outcome = "updated"  # text changed at an existing origin
-            return doc_id, outcome
+            return doc_id, outcome, orphan_id
 
     def remove_origin(self, source_id: str, locator: str) -> str | None:
         """Remove an origin; returns document_id if the document was fully removed."""

@@ -52,10 +52,10 @@ docker build -f dify/docker/mcp-server/Dockerfile -t agentic-rag-mcp:latest .
 docker run -d --name agentic-rag --network <dify_network> \
   -v ~/.config/agentic-rag-mcp:/root/.config/agentic-rag-mcp \
   -v ~/.cache/huggingface:/root/.cache/huggingface \
-  -p 8080:8080 --restart always agentic-rag-mcp:latest
+  -p 28080:8080 --restart always agentic-rag-mcp:latest
 ```
 
-Dify UI → Tools → MCP → URL `http://agentic-rag:8080/mcp` (never `localhost` — Docker DNS only). Edit MCP servers by delete + re-add (Dify 1.17's edit path has an identifier-vs-UUID bug).
+Dify UI → Tools → MCP → URL `http://agentic-rag:8080/mcp` (container-internal port stays 8080; the host publishes **28080**, so host-side checks use `http://localhost:28080/healthz`). Edit MCP servers by delete + re-add (Dify 1.17's edit path has an identifier-vs-UUID bug).
 
 ## Configuration
 

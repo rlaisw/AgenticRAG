@@ -36,7 +36,7 @@ class IngestionPipeline:
             except RagError as exc:
                 stats["skipped"].append({"locator": locator, "reason": exc.message})
                 continue
-            doc_id, outcome = self.state.upsert_document(
+            doc_id, outcome, orphan_id = self.state.upsert_document(
                 content_hash=content_hash(text),
                 title=path.name,
                 extracted_text=text,
@@ -51,7 +51,12 @@ class IngestionPipeline:
                 text=text,
                 embedder=self.embedder,
             )
-            stats["added" if outcome == "created" else "updated"] += 1
+            if orphan_id:  # evicted by a content change — drop its stale chunks
+                self.vectors.delete_document(self.collection, orphan_id)
+            if outcome == "created":
+                stats["added"] += 1
+            elif outcome == "updated":
+                stats["updated"] += 1
             log.info("ingested %s (%s chunks)", locator, count)
         # deletions: origins under this source not seen this cycle
         existing = self.state.get_source(source_id)
@@ -70,7 +75,7 @@ class IngestionPipeline:
         seen = set()
         for row in source.rows():
             seen.add(row["locator"])
-            doc_id, outcome = self.state.upsert_document(
+            doc_id, outcome, orphan_id = self.state.upsert_document(
                 content_hash=row["hash"],
                 title=row["title"],
                 extracted_text=row["text"],
@@ -85,7 +90,12 @@ class IngestionPipeline:
                 text=row["text"],
                 embedder=self.embedder,
             )
-            stats["added" if outcome == "created" else "updated"] += 1
+            if orphan_id:  # evicted by a content change — drop its stale chunks
+                self.vectors.delete_document(self.collection, orphan_id)
+            if outcome == "created":
+                stats["added"] += 1
+            elif outcome == "updated":
+                stats["updated"] += 1
         existing = self.state.get_source(source_id)
         prev = set((existing or {}).get("sync_state", {}).get("locators", []))
         for stale in prev - seen:

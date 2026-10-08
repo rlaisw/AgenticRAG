@@ -58,9 +58,9 @@ def test_cross_source_duplicate_collapses(tmp_path):
     store = StateStore(tmp_path / "s.sqlite3")
     text = "identical unique content appearing in two sources"
     h = content_hash(text)
-    d1, _ = store.upsert_document(content_hash=h, title="local", extracted_text=text,
+    d1, _, _ = store.upsert_document(content_hash=h, title="local", extracted_text=text,
                                   media_type="pdf", source_id="folder", locator="/a.pdf")
-    d2, outcome = store.upsert_document(content_hash=h, title="onedrive", extracted_text=text,
+    d2, outcome, _ = store.upsert_document(content_hash=h, title="onedrive", extracted_text=text,
                                         media_type="pdf", source_id="od", locator="item:1")
     assert d1 == d2 and outcome in ("updated", "linked")
     assert store.doc_count() == 1

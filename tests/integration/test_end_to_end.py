@@ -59,6 +59,16 @@ def test_incremental_add_update_delete(server, tmp_path):
     stats = call(srv, "sources_sync", {"source_id": sid})[sid]
     assert stats["added"] >= 1
 
+    # update: rewrite the file with changed content — old chunks must be replaced
+    d = Document(); d.add_paragraph("Pluto remains the largest dwarf planet known.")
+    d.save(folder / "new.docx")
+    stats = call(srv, "sources_sync", {"source_id": sid})[sid]
+    assert stats["updated"] >= 1
+    res = call(srv, "search", {"query": "Pluto dwarf planet"})
+    hits = " ".join(h["snippet"] for h in res)
+    assert "reclassified" not in hits            # stale content evicted from the store
+    assert "largest dwarf planet" in hits         # new content searchable
+
     # delete
     (folder / "physics.pdf").unlink()
     stats = call(srv, "sources_sync", {"source_id": sid})[sid]
