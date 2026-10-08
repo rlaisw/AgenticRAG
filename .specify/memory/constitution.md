@@ -1,50 +1,32 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+# AgenticRAG Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Contract Preservation (NON-NEGOTIABLE)
+Client-facing tool contracts — the `ask` response field set and MCP tool schemas — must stay backward-compatible: existing contract tests pass unchanged, new fields are additive, and any breaking change requires a spec amendment documenting the migration. Consumers (Dify chatflows, MCP hosts) must never break on a server upgrade.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### II. Tests-First
+Every non-trivial behavior lands with its runnable check written before the implementation (unit / integration / contract, per `tests/` layout). The full suite must be green before any task is marked complete. Tests are never weakened to pass — fix the code, or fix a fixture that was genuinely dishonest.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### III. Minimal Dependencies
+Reuse the ladder before adding anything: stdlib → platform → already-installed dependency → new dependency. Vendored third-party code carries its license header and a re-vendor upgrade path (see `routing/rl_agent_api.py`). New runtime services are a last resort and must degrade gracefully when absent.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### IV. Honest Answers (NON-NEGOTIABLE)
+The system never fabricates. No evidence → "no relevant information was found". Budget exhaustion → low-confidence flag. Disabled features → explicit FeatureDisabled errors. Every routing decision carries provenance (`decision_node` | `fallback`) — there is no third value.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### V. Spec-Driven Replacement
+Superseding work retires the old design, it does not deprecate it: old code paths are deleted (no dead code), the spec carries a Supersedes record, and the client contract is preserved field-for-field. Configuration for retired components is removed with them.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+## Quality Gates
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
-
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
-
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+- 100% of the pytest suite green before commit (currently 97 tests across unit/integration/contract)
+- One runnable check per non-trivial behavior; deterministic tests (mocks at trust boundaries, no network in CI paths)
+- Performance targets are measured, not assumed; success criteria are hardware-relative when measurement demands it (see SC-001 amendment, spec 002)
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+- This constitution governs all `/speckit.*` commands; violations surface as CRITICAL convergence findings
+- Amendments require documented rationale in the amending spec's Clarifications section
+- Lazy engineering is the house style: shortest working diff, deletion over addition, YAGNI — never at the expense of Principles I and IV
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0.0 | **Ratified**: 2026-10-08 | **Last Amended**: 2026-10-08

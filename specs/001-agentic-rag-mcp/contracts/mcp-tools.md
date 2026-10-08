@@ -2,6 +2,8 @@
 
 Transport: **stdio** (host-spawned child process). Protocol: MCP (JSON-RPC over stdio).
 
+> **Partially superseded (2026-10-08):** the `ask` response now additionally carries `decision` and `reflections` (additive — see [specs/002-laya-reflexion-nodes/contracts/ask-response.md](../../002-laya-reflexion-nodes/contracts/ask-response.md)), and two tools were added: `web_search` and `fetch_url`. All contracts below remain in force.
+
 ## Tools
 
 ### 1. `ask` — Q&A with agentic retrieval
@@ -52,7 +54,7 @@ Disabled ⇒ returns structured error `FeatureDisabled`.
 
 ### 6. `status` — server health
 
-Output: `{ "version": "string", "decision_layer": "laya|fallback|down", "sources": [...health...], "index": { "documents": int, "chunks": int, "last_sync_at": "datetime" } }`
+Output: `{ "version": "string", "decision_layer": "decision_node|fallback", "sources": [...health...], "index": { "documents": int, "chunks": int, "last_sync_at": "datetime" } }` *(value vocabulary updated by spec 002: `laya` → `decision_node`; `down` removed — unavailability is reported as `fallback`)*
 
 ## Error surface
 

@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-05
 
-**Status**: Draft
+**Status**: Implemented — **partially superseded by [specs/002-laya-reflexion-nodes/spec.md](../002-laya-reflexion-nodes/spec.md)** (see its *Supersedes — Replacement Scope* table): the single-label classifier + keyword-heuristic primary routing and the monolithic deliberation loop described here were replaced by the embedded System 1 decision node and the LangGraph reflexion graph. Ingestion, storage, sources, contracts, and all other FRs of this spec remain in force.
 
 **Input**: User description: "Build an Agentic RAG MCP Server with: dynamic/real-time update and embedding of data into a vector database (LanceDB); support for local source data files (PDF, Microsoft Office documents — Word, Excel, PowerPoint — and audio files); SQLite DB as a data source; remote data sources OneDrive and Office 365 SharePoint Online; real-time internet search engines (Tavily, Exa, SearXNG); LanceDB paired with CocoIndex [full] for an incremental data transformation and vector search pipeline; Graphify for semantic search; Laya decision model and reflection agent loop (System 1 fast path, System 2 LangGraph complex research); dynamic reasoning loops that evaluate retrieval sufficiency and loop back to query more; autonomous planning & routing that breaks complex questions into sub-tasks and chooses the best tools; ReAct (Reason + Act) with LLMs; run Laya as a decision layer locally."
 
