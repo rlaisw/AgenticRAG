@@ -7,15 +7,18 @@ import logging
 import uuid
 from pathlib import Path
 
+import httpx
+
 from mcp.server.fastmcp import FastMCP
 
-from .agents.graph import ReflectionAgent
+from .agents import synthesis
+from .agents.reflexion import ReflexionAgent
 from .agents.tools import make_sql_tool, make_vector_tool, make_web_tool
 from .config import Config, init_config, load_config
-from .errors import DecisionLayerUnavailable, FeatureDisabledError, NotFoundError, RagError
+from .errors import FeatureDisabledError, NotFoundError, RagError
 from .ingestion.pipeline import IngestionPipeline
 from .ingestion.watchers import Watcher
-from .routing.laya import LayaDecisionLayer, heuristic_classify
+from .routing import decision as decision_mod
 from .search.embeddings import Embedder
 from .search.graphify_search import GraphifySearch
 from .search.web.base import build_providers
@@ -26,7 +29,23 @@ from .store.vectordb import VectorStore
 log = logging.getLogger("agentic_rag_mcp")
 
 
-def build_server(cfg: Config | None = None) -> FastMCP:
+def _fetch_url(url: str, max_chars: int = 4000) -> dict:
+    """Fetch a live web page (httpx). Shared by the MCP tool and the deep loop."""
+    if not url.startswith(("http://", "https://")):
+        raise ValueError("url must be http(s)")
+    resp = httpx.get(url, timeout=20.0, follow_redirects=True,
+                     headers={"User-Agent": "agentic-rag-mcp/0.1"})
+    return {
+        "url": str(resp.url),
+        "status": resp.status_code,
+        "date_utc": resp.headers.get("date", ""),
+        "text": resp.text[:max_chars],
+    }
+
+
+def build_server(cfg: Config | None = None, **fastmcp_kwargs) -> FastMCP:
+    """Build the MCP server. `fastmcp_kwargs` override FastMCP settings
+    (e.g. stateless_http=True for Dify's streamable-HTTP client)."""
     cfg = cfg or load_config()
     state = StateStore(cfg.state_db)
     vectors = VectorStore(cfg.vector_dir)
@@ -35,31 +54,40 @@ def build_server(cfg: Config | None = None) -> FastMCP:
     watcher = Watcher(pipeline, state)
     watcher.start()
 
-    laya = LayaDecisionLayer(cfg.laya_url, cfg.laya_token)
     web_providers = build_providers(cfg)
     graphify = GraphifySearch(Path("graphify-out/graph.json"), enabled=cfg.graphify_enabled)
 
     agent_tools = {
         "vector_search": make_vector_tool(vectors, embedder),
         "web_search": make_web_tool(web_providers),
+        "fetch_url": _fetch_url,
     }
     if cfg.graphify_enabled:
         agent_tools["graphify"] = lambda q, limit=5: [
             {"content": graphify.explain(q)["answer"], "title": f"graph:{q}",
              "document_id": f"graphify:{q}"}
         ]
-    agent = ReflectionAgent(tools=agent_tools, max_iterations=cfg.max_iterations)
+    agent = ReflexionAgent(agent_tools, cfg.max_iterations)
 
-    mcp = FastMCP("agentic-rag-mcp", host=cfg.mcp_host, port=cfg.mcp_port)
+    fastmcp_kwargs.setdefault("host", cfg.mcp_host)
+    fastmcp_kwargs.setdefault("port", cfg.mcp_port)
+    mcp = FastMCP("agentic-rag-mcp", **fastmcp_kwargs)
+    mcp._cfg = cfg  # live config handle for tests/ops (recovery toggles, status probes)
+    if cfg.decider_enabled:
+        from .routing import laya_runtime
+
+        laya_runtime.warm_up(cfg)  # pre-load the decision model in the background
 
     def degraded_sources() -> list[str]:
         return [s["id"] for s in state.list_sources() if s["health"] != "healthy"]
 
-    def classify(question: str) -> tuple[str, str]:
-        try:
-            return laya.classify(question), "laya"
-        except DecisionLayerUnavailable:
-            return heuristic_classify(question), "fallback"
+    def route_question(question: str):
+        """FR-001/FR-003: the decision node is primary; keyword heuristic only on outage."""
+        if cfg.decider_enabled:
+            d = decision_mod.decide(question, cfg)
+            if d.valid:
+                return d
+        return decision_mod.fallback_route(question)
 
     @mcp.tool()
     def ask(question: str, collections: list[str] | None = None, mode: str = "auto",
@@ -67,32 +95,55 @@ def build_server(cfg: Config | None = None) -> FastMCP:
         """Answer a question with agentic retrieval and per-source citations."""
         request_id = uuid.uuid4().hex[:8]
         log.info("ask[%s]: %s", request_id, question[:120])
-        classification, classifier = (
-            ("deliberative", "forced") if mode == "deep"
-            else ("fast", "forced") if mode == "fast"
-            else classify(question)
-        )
+        d = route_question(question)
+        # forced modes override execution, not the decision itself (FR-001: every request decided)
+        if mode == "fast":
+            exec_route, classifier = "direct_retrieval", "forced"
+        elif mode == "deep":
+            exec_route, classifier = "deliberative_reasoning", "forced"
+        else:
+            exec_route = d.route
+            classifier = d.provenance  # "decision_node" | "fallback"
         agent._budget = max_iterations or cfg.max_iterations
-        if classification == "fast":
-            hits = make_vector_tool(vectors, embedder)(question)
-            if hits:
-                answer = ReflectionAgent({}, 0)._synthesize(question, hits, "normal")
-                citations = ReflectionAgent({}, 0)._citations(hits)
-                confidence = "normal"
+        if exec_route in ("direct_retrieval", "source_management"):
+            if exec_route == "source_management":
+                # FR-005: guidance only, never operations. Misroute safety: a strong KB
+                # match (Lance distance <= 1.0; measured 0.7 real vs 1.9 fuzzy) means
+                # this was actually a knowledge question — answer it from the KB.
+                hits = make_vector_tool(vectors, embedder)(question)
+                if hits and hits[0].get("score", 99) <= 1.0:
+                    answer = synthesis.synthesize(question, hits, "normal")
+                    citations = synthesis.citations(hits)
+                else:
+                    answer = ("This looks like a source-management request. Use the sources_list, "
+                              "sources_add, sources_sync, or sources_remove tools to manage the "
+                              "knowledge base — they perform the actual operations.")
+                    citations = []
             else:
-                answer = "No relevant information was found in the available sources."
-                citations, confidence = [], "normal"
+                hits = make_vector_tool(vectors, embedder)(question)
+                if hits:
+                    answer = synthesis.synthesize(question, hits, "normal")
+                    citations = synthesis.citations(hits)
+                else:
+                    answer = "No relevant information was found in the available sources."
+                    citations = []
+            if exec_route == "source_management":
+                suff, plan = "satisfied", []
+            else:
+                suff = "satisfied" if hits else "exhausted"
+                plan = [{"id": "t1", "tool": "vector_search", "input": question}]
             result = {
-                "answer": answer, "confidence": confidence, "classification": "fast",
-                "classifier": classifier, "citations": citations,
+                "answer": answer, "confidence": "normal", "classification": "fast",
+                "classifier": classifier, "citations": citations, "iterations": 0,
+                "sufficiency": suff, "error": None, "plan": plan, "reflections": [],
                 "trace": [{"tool": "vector_search", "query": question, "hits": len(hits)}],
                 "degraded_sources": degraded_sources(),
             }
         else:
-            result = agent.run(question)
+            result = agent.run(question, web_first=(exec_route == "live_web"))
             result["classifier"] = classifier
             result["degraded_sources"] = degraded_sources()
-            result.pop("error", None)  # budget exhaustion is metadata, not an error
+        result["decision"] = d.to_dict()  # FR-014: full System 1 trace on every response
         state.save_session({"question": question, "classification": result.get("classification"),
                             "classifier": classifier, "plan": result.get("plan", []),
                             "iterations": result.get("iterations", 0),
@@ -105,6 +156,18 @@ def build_server(cfg: Config | None = None) -> FastMCP:
     def search(query: str, collections: list[str] | None = None, limit: int = 5) -> list[dict]:
         """Direct vector search without synthesis."""
         return make_vector_tool(vectors, embedder)(query, limit=limit)
+
+    @mcp.tool()
+    def web_search(query: str, limit: int = 5) -> list[dict]:
+        """Live web search via configured providers (SearXNG first; falls back to Tavily/Exa). Returns [{title, url, snippet}]."""
+        return make_web_tool(web_providers)(query, limit=limit)
+
+    @mcp.tool()
+    def fetch_url(url: str, max_chars: int = 4000) -> dict:
+        """Fetch a live web page. Returns page text plus the server's `date_utc`
+        (HTTP Date header = live UTC clock) — use it for current time/date
+        questions instead of trusting cached search snippets."""
+        return _fetch_url(url, max_chars)
 
     @mcp.tool()
     def sources_add(type: str, config: dict) -> dict:
@@ -156,16 +219,13 @@ def build_server(cfg: Config | None = None) -> FastMCP:
 
     @mcp.tool()
     def status() -> dict:
-        """Server health: decision layer, per-source health, index counters."""
-        try:
-            laya.classify("ping")
-            decision = "laya"
-        except DecisionLayerUnavailable:
-            decision = "fallback"
+        """Server health: decision node, per-source health, index counters."""
+        probe = route_question("status probe")
+        decider = probe.provenance  # "decision_node" | "fallback"
         stats = vectors.stats()
         return {
             "version": "0.1.0",
-            "decision_layer": decision,
+            "decision_layer": decider,
             "sources": sources_list(),
             "index": {"documents": state.doc_count(), "chunks": stats["chunks"],
                       "collections": stats["collections"]},

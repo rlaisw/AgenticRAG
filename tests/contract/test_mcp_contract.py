@@ -24,7 +24,7 @@ def call(server, name, args):
 def server(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path))  # isolate config/state dirs
     cfg = Config(state_db=tmp_path / "state.sqlite3", vector_dir=tmp_path / "vector",
-                 laya_url="http://127.0.0.1:1")  # unreachable -> fallback
+                 decider_enabled=False)
     return build_server(cfg)
 
 
@@ -54,6 +54,6 @@ def test_graph_query_disabled_by_default(server):
 
 def test_status_shape(server):
     out = call(server, "status", {})
-    assert out["decision_layer"] in ("laya", "fallback")
+    assert out["decision_layer"] in ("decision_node", "fallback")
     assert "index" in out and "sources" in out
     assert "documents" in out["index"] and "chunks" in out["index"]

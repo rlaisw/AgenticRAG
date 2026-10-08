@@ -1,0 +1,28 @@
+# Dify MCP Sidecar compose entry — merge into your Dify docker-compose.yml
+# (or: docker compose -f docker-compose.yaml -f this-file up -d).
+#
+# Build the image first, from the AgenticRAG repo root:
+#   docker build -f dify/docker/mcp-server/Dockerfile -t agentic-rag-mcp:latest .
+#
+# Dify UI (Tools > MCP):  URL http://agentic-rag:8080/mcp  (or /sse for legacy)
+# NEVER use localhost/127.0.0.1/host.docker.internal — Dify reaches the
+# sidecar via Docker DNS name only.
+#
+# REQUIRED in dify/docker/.env (Dify's SSRF proxy denies private targets
+# by default; without this the UI save fails with "Cannot connect to MCP
+# server" and the proxy log shows TCP_DENIED/403):
+#   SSRF_PROXY_ALLOW_PRIVATE_DOMAINS=agentic-rag
+# then: docker compose up -d ssrf_proxy
+
+services:
+  agentic-rag:
+    image: agentic-rag-mcp:latest
+    container_name: agentic-rag
+    volumes:
+      - ~/.config/agentic-rag-mcp:/root/.config/agentic-rag-mcp  # config + LanceDB state
+      - ~/.cache/huggingface:/root/.cache/huggingface            # decision-model + embedder checkpoints
+      - ~/.cache/huggingface:/root/.cache/huggingface            # decision-model + embedder checkpoints
+    networks:
+      - dify_network
+      - ssrf_proxy_network
+    restart: always

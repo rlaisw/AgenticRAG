@@ -25,10 +25,13 @@ device = "cpu"
 [agent]
 max_iterations = 5           # deliberative loop budget (FR-014/FR-017)
 
-[decision_layer]
-# Laya desktop app local MCP surface; unreachable => heuristic fallback
-laya_url = "http://127.0.0.1:8420/mcp/"
-laya_token = ""              # from Laya Settings -> MCP
+[decider]
+# System 1 embedded decision node (Laya decision model, ~1.7 GB on first load)
+enabled = true               # false => keyword heuristic is primary (provenance: fallback)
+model_repo = "convaiinnovations/laya"
+model_dir = ""               # optional local checkpoint dir (overrides download)
+timeout = 12.0               # seconds; exceeded => fallback (~7.4s warm on ARM CPU)
+noul_threshold = 0.5         # P(true) >= threshold => knowledge-base-sufficient
 
 [web]
 # order in which providers are tried; providers without config are skipped
@@ -56,8 +59,11 @@ class Config:
     embedding_model: str = "all-MiniLM-L6-v2"
     embedding_device: str = "cpu"
     max_iterations: int = 5
-    laya_url: str = "http://127.0.0.1:8420/mcp/"
-    laya_token: str = ""
+    decider_enabled: bool = True
+    decider_model_repo: str = "convaiinnovations/laya"
+    decider_model_dir: str = ""
+    decider_timeout: float = 12.0
+    decider_noul_threshold: float = 0.5
     web_fallback_order: list[str] = field(default_factory=lambda: ["searxng", "tavily", "exa"])
     web_tavily_key: str = ""
     web_exa_key: str = ""
@@ -88,8 +94,11 @@ def load_config(path: Path | None = None) -> Config:
         embedding_model=_get(raw, "embedding", "model", default="all-MiniLM-L6-v2"),
         embedding_device=_get(raw, "embedding", "device", default="cpu"),
         max_iterations=int(_get(raw, "agent", "max_iterations", default=5)),
-        laya_url=_get(raw, "decision_layer", "laya_url", default="http://127.0.0.1:8420/mcp/"),
-        laya_token=_get(raw, "decision_layer", "laya_token", default=""),
+        decider_enabled=bool(_get(raw, "decider", "enabled", default=True)),
+        decider_model_repo=_get(raw, "decider", "model_repo", default="convaiinnovations/laya"),
+        decider_model_dir=_get(raw, "decider", "model_dir", default=""),
+        decider_timeout=float(_get(raw, "decider", "timeout", default=12.0)),
+        decider_noul_threshold=float(_get(raw, "decider", "noul_threshold", default=0.5)),
         web_fallback_order=_get(
             raw, "web", "fallback_order", default=["searxng", "tavily", "exa"]
         ),

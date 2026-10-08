@@ -1,0 +1,17 @@
+# Standalone local run of the AgenticRAG MCP sidecar (no Dify networks).
+# Usage: docker compose up --build
+services:
+  agentic-rag:
+    build:
+      context: ../..                       # repo root (needs pyproject.toml + src/)
+      dockerfile: dify/docker/mcp-server/Dockerfile
+    container_name: agentic-rag
+    ports:
+      - "8080:8080"                        # optional: host testing only
+    volumes:
+      - ~/.config/agentic-rag-mcp:/root/.config/agentic-rag-mcp  # config + LanceDB state
+      - ~/.cache/huggingface:/root/.cache/huggingface            # decision-model + embedder checkpoints
+      - ~/.cache/huggingface:/root/.cache/huggingface            # decision-model + embedder checkpoints
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped

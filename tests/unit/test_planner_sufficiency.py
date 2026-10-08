@@ -1,18 +1,4 @@
-from agentic_rag_mcp.agents.sufficiency import assess
 from agentic_rag_mcp.routing.planner import decompose
-
-
-def test_sufficiency_satisfied():
-    hits = [{"snippet": "a"}, {"snippet": "b"}]
-    assert assess("q", hits, 0, 5)["outcome"] == "satisfied"
-
-
-def test_sufficiency_exhausted_at_budget():
-    assert assess("q", [], 4, 5)["outcome"] == "exhausted"
-
-
-def test_sufficiency_continue():
-    assert assess("q", [{"snippet": "a"}], 0, 5)["outcome"] == "continue"
 
 
 def test_planner_multi_part():

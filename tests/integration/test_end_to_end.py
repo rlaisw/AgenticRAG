@@ -24,7 +24,7 @@ def call(server, name, args):
 def server(tmp_path, corpus, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path))
     cfg = Config(state_db=tmp_path / "state.sqlite3", vector_dir=tmp_path / "vector",
-                 laya_url="http://127.0.0.1:1", max_iterations=2)
+                 max_iterations=2, decider_enabled=False)
     return build_server(cfg), corpus
 
 
