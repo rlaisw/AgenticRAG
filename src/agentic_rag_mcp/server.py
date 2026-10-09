@@ -21,7 +21,7 @@ from .ingestion.watchers import Watcher
 from .routing import decision as decision_mod
 from .search.embeddings import Embedder
 from .search.graphify_search import GraphifySearch
-from .search.web.base import build_providers
+from .search.web.base import build_providers, search_all
 from .sources.sqlite_source import SqliteSource
 from .store.state import StateStore
 from .store.vectordb import VectorStore
@@ -57,9 +57,34 @@ def build_server(cfg: Config | None = None, **fastmcp_kwargs) -> FastMCP:
     web_providers = build_providers(cfg)
     graphify = GraphifySearch(Path("graphify-out/graph.json"), enabled=cfg.graphify_enabled)
 
+    def _web_evidence(query: str, limit: int = 3) -> list[dict]:
+        """FR-012: grouped web content as reflexion evidence (internal shape) —
+        the snippet field carries the bounded, grouped page text so synthesis
+        and citations consume it unchanged; document_id = url for citations."""
+        from .search.web.research import render_page, research_pages, sections_to_text
+
+        hits, _, _ = search_all(web_providers, query, limit)
+        scrapes = research_pages(
+            hits, t0=__import__("time").perf_counter(),
+            fetch_timeout_s=cfg.research_fetch_timeout_s,
+            per_page_chars=cfg.research_per_page_chars,
+            overall_timeout_s=cfg.research_overall_timeout_s,
+            max_concurrent=cfg.research_max_concurrent,
+        )
+        out = []
+        for h in hits:
+            scrape = scrapes.get(h["url"])
+            content = (sections_to_text(scrape["sections"])
+                       if scrape and scrape["status"] == "ok" and scrape["sections"]
+                       else h["snippet"])
+            if content:
+                out.append({"title": h["title"], "url": h["url"], "snippet": content,
+                            "document_id": h["url"]})
+        return out
+
     agent_tools = {
         "vector_search": make_vector_tool(vectors, embedder),
-        "web_search": make_web_tool(web_providers),
+        "web_search": _web_evidence,
         "fetch_url": _fetch_url,
     }
     if cfg.graphify_enabled:
@@ -161,6 +186,46 @@ def build_server(cfg: Config | None = None, **fastmcp_kwargs) -> FastMCP:
     def web_search(query: str, limit: int = 5) -> list[dict]:
         """Live web search via configured providers (SearXNG first; falls back to Tavily/Exa). Returns [{title, url, snippet}]."""
         return make_web_tool(web_providers)(query, limit=limit)
+
+    @mcp.tool()
+    def web_research(query: str, limit: int = 3) -> dict:
+        """Grouped web research: multi-engine search via the provider chain, then a
+        per-page outline-preserving scrape (sections keep text + belonging image in
+        document order), bounded for the LLM, with honest snippet fallbacks and a
+        standalone rendered HTML artifact per page (spec 003, FR-011)."""
+        import time as _time
+
+        from .search.web.research import render_page, research_pages, sections_to_text
+
+        limit = max(1, min(limit, cfg.research_max_pages))
+        started = _time.perf_counter()
+        hits, engines_used, error = search_all(web_providers, query, limit)
+        scrapes = research_pages(
+            hits, t0=started, fetch_timeout_s=cfg.research_fetch_timeout_s,
+            per_page_chars=cfg.research_per_page_chars,
+            overall_timeout_s=cfg.research_overall_timeout_s,
+            max_concurrent=cfg.research_max_concurrent,
+        )
+        out_hits = []
+        for h in hits:
+            scrape = scrapes.get(h["url"], {"url": h["url"], "sections": [],
+                                            "truncated": False, "status": "failed",
+                                            "status_reason": "not-attempted"})
+            ok = scrape["status"] == "ok" and scrape["sections"]
+            # honest content (FR-008/SC-004): grouped sections when ok, else the snippet
+            content = sections_to_text(scrape["sections"]) if ok else h["snippet"]
+            render = (render_page(scrape["sections"], h["url"], h["title"]) if ok
+                      else render_page([], h["url"], h["title"],
+                                       fallback_snippet=h["snippet"] or None))
+            out_hits.append({**h, "scrape": scrape, "content": content,
+                             "render_html": render})
+        return {
+            "query": query,
+            "engines_used": engines_used,
+            "elapsed_ms": int((_time.perf_counter() - started) * 1000),
+            "error": error,
+            "hits": out_hits,
+        }
 
     @mcp.tool()
     def fetch_url(url: str, max_chars: int = 4000) -> dict:

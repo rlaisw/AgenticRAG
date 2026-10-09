@@ -46,6 +46,13 @@ fallback_order = ["searxng", "tavily", "exa"]
 [web.searxng]
 # url = "http://127.0.0.1:8888"
 
+[web.research]
+max_pages = 3                # pages scraped per research call (cap 5)
+per_page_chars = 6000        # content bound per page (FR-007)
+fetch_timeout_s = 15.0       # per-page fetch timeout
+overall_timeout_s = 30.0     # end-to-end bound for a research call (FR-014)
+max_concurrent = 4           # parallel page fetches
+
 [features]
 graphify = false             # optional graph-search layer
 
@@ -68,6 +75,11 @@ class Config:
     web_tavily_key: str = ""
     web_exa_key: str = ""
     web_searxng_url: str = ""
+    research_max_pages: int = 3
+    research_per_page_chars: int = 6000
+    research_fetch_timeout_s: float = 15.0
+    research_overall_timeout_s: float = 30.0
+    research_max_concurrent: int = 4
     graphify_enabled: bool = False
     mcp_host: str = "127.0.0.1"
     mcp_port: int = 8811
@@ -105,6 +117,11 @@ def load_config(path: Path | None = None) -> Config:
         web_tavily_key=_get(raw, "web", "tavily", "api_key", default=""),
         web_exa_key=_get(raw, "web", "exa", "api_key", default=""),
         web_searxng_url=_get(raw, "web", "searxng", "url", default=""),
+        research_max_pages=min(5, int(_get(raw, "web", "research", "max_pages", default=3))),  # cap 5
+        research_per_page_chars=int(_get(raw, "web", "research", "per_page_chars", default=6000)),
+        research_fetch_timeout_s=float(_get(raw, "web", "research", "fetch_timeout_s", default=15.0)),
+        research_overall_timeout_s=float(_get(raw, "web", "research", "overall_timeout_s", default=30.0)),
+        research_max_concurrent=int(_get(raw, "web", "research", "max_concurrent", default=4)),
         graphify_enabled=bool(_get(raw, "features", "graphify", default=False)),
         mcp_host=_get(raw, "server", "host", default="127.0.0.1"),
         mcp_port=int(_get(raw, "server", "port", default=8811)),

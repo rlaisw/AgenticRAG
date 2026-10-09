@@ -106,3 +106,37 @@ def build_providers(cfg) -> list:
         except ProviderError:
             continue  # unconfigured providers are skipped, not fatal
     return out
+
+
+def search_all(providers: list, query: str, limit: int = 5):
+    """Query every configured engine and aggregate (FR-001/003/004).
+
+    Returns (hits, engines_used, error): hits carry the frozen fields plus the
+    contributing `engine`; duplicate URLs are dropped keeping the first ranking;
+    a failing engine is skipped, not fatal; error is set only when every
+    configured engine failed (or none are configured) — never fabricated hits.
+    """
+    hits: list[dict] = []
+    engines_used: list[str] = []
+    failures: list[str] = []
+    seen: set[str] = set()
+    for provider in providers:
+        try:
+            returned = provider.search(query, limit=limit)
+        except Exception as exc:  # noqa: BLE001 — engine isolation (FR-003)
+            failures.append(f"{provider.name}: {exc}")
+            continue
+        if provider.name not in engines_used:
+            engines_used.append(provider.name)
+        for hit in returned:
+            url = hit.get("url", "")
+            if not url or url in seen:  # FR-004: dedup, first ranking wins
+                continue
+            seen.add(url)
+            hits.append({**hit, "engine": provider.name})
+    error = None
+    if not providers:
+        error = {"message": "no web engines configured", "details": []}
+    elif failures and not hits and not engines_used:
+        error = {"message": "all engines failed", "details": failures}
+    return hits[:limit], engines_used, error

@@ -73,20 +73,9 @@ def _actor(state: _State) -> dict:
         trace.append({"tool": task["tool"], "query": task["input"], "hits": len(hits)})
         task["results"] = hits
         evidence.extend(hits)
-        # read the top web result once per run — page text beats cached snippets
-        if task["tool"] == "web_search" and "fetch_url" in tools:
-            for hit in hits:
-                url = hit.get("url", "")
-                if url and url not in fetched:
-                    fetched.add(url)
-                    try:
-                        page = tools["fetch_url"](url, max_chars=4000)
-                    except Exception:  # noqa: BLE001 — best-effort
-                        break
-                    trace.append({"tool": "fetch_url", "query": url, "hits": 1})
-                    evidence.append({"title": hit.get("title", "web page"), "url": url,
-                                     "snippet": (page.get("text") or "")[:1000]})
-                    break
+        # FR-012: the web_search tool itself now yields grouped page content as
+        # evidence (server-side research pipeline); the prior single-page
+        # fetch enrichment here is superseded and removed.
     return {
         "tasks": tasks, "trace": trace, "evidence": evidence,
         "fetched_urls": list(fetched),

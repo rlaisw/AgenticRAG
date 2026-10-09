@@ -6,18 +6,7 @@ app:
   mode: advanced-chat
   name: Chatflow Basic (AgenticRAG Agent)
   use_icon_as_answer_icon: false
-dependencies:
-- current_identifier: null
-  type: marketplace
-  value:
-    marketplace_plugin_unique_identifier: langgenius/openrouter:0.1.9@8f8c69f645a62eb917ae219cfb8b567e39707941fc06c755d565ebea6cd1d88a
-    version: null
-# Agent strategy plugin (provides the FunctionCalling strategy used by the Agent node)
-- current_identifier: null
-  type: marketplace
-  value:
-    marketplace_plugin_unique_identifier: langgenius/agent:0.0.50@bf1040682cc9e1e5caf9b4670531639c440bf9448025cd5ee0915fdcf7a921f3
-    version: null
+dependencies: []
 kind: app
 version: 0.7.0
 workflow:
@@ -56,7 +45,7 @@ workflow:
         - local_file
         - remote_url
       number_limits: 3
-    opening_statement: Hi! I'm connected to the AgenticRAG MCP server — knowledge base (ask/search), live web (web_search/fetch_url — try "what time is it in Hong Kong" or "how to trace an O365 email"), and source management (list/add/sync/remove), plus status and graph_query.
+    opening_statement: Hi! I'm connected to the AgenticRAG MCP server. Test me with — "what is the server status", "list my sources", "ask about quarterly revenue", "search for Apollo 11", "sync all sources", "add the fixtures folder as a source", "query the graph for X", or "remove a source".
     retriever_resource:
       enabled: true
     sensitive_word_avoidance:
@@ -72,7 +61,6 @@ workflow:
       voice: ''
   graph:
     edges:
-    # Start -> Agent
     - data:
         isInIteration: false
         isInLoop: false
@@ -85,7 +73,6 @@ workflow:
       targetHandle: target
       type: custom
       zIndex: 0
-    # Agent -> Answer
     - data:
         isInIteration: false
         isInLoop: false
@@ -99,7 +86,6 @@ workflow:
       type: custom
       zIndex: 0
     nodes:
-    # ---- Start node ----
     - data:
         desc: Capture user's chat messages and files.
         selected: false
@@ -114,66 +100,17 @@ workflow:
       positionAbsolute:
         x: 80
         y: 286
-      selected: true
+      selected: false
       sourcePosition: right
       targetPosition: left
       type: custom
       width: 242
       zIndex: 0
-    # ---- Agentic Strategy node: FunctionCalling agent with all 8 AgenticRAG tools ----
-    # After import: if the strategy/model/tools did not auto-link, open this node,
-    # select strategy "FunctionCalling" (langgenius/agent), model deepseek/deepseek-v4.1-flash
-    # (openrouter), and attach the 8 tools from the "Agentic RAG" (agentic-rag) MCP provider.
     - data:
         agent_parameters:
-          # NOTE: parameter names must match the strategy declaration exactly
-          # (function_calling declares: model, allowed_tools, tools, instruction,
-          # context, query, files, maximum_iterations)
           instruction:
             type: constant
-            value: |
-              You are a test assistant for the AgenticRAG MCP server. You have 8 tools
-              from the "Agentic RAG" (provider id: agentic-rag) MCP provider:
-
-              - ask: full agentic Q&A over the knowledge base; returns answer + citations
-                (optional args: mode "auto|fast|deep", max_iterations)
-              - search: raw vector search (args: query, limit)
-              - web_search: LIVE web search via SearXNG (args: query, limit).
-                Use it for current events, live data (time, weather, news),
-                or anything the knowledge base can't contain. Note: search
-                snippets are CACHED — never trust them for exact time/date.
-              - fetch_url: fetch a live web page (args: url, max_chars).
-                For current time/date questions: call fetch_url on any URL
-                and use the returned `date_utc` header as the live UTC clock,
-                then convert to the target timezone (e.g. Hong Kong = UTC+8,
-                no DST). This is accurate; search snippets are not.
-              - status: server health, decision layer, source health, index counters
-              - sources_list: list registered sources with health
-              - sources_add: register a source (type "local_folder" needs config.path;
-                type "sqlite" needs config.db_path/table/template)
-              - sources_sync: manual incremental sync (optional source_id)
-              - sources_remove: remove a source by id (destructive — ask the user to
-                confirm, and call sources_list first to get the source_id)
-              - graph_query: optional graph search layer; if it returns FeatureDisabled,
-                say so honestly instead of guessing
-
-              Pick the tool that matches the request, call it, then summarize the result
-              for the user. When a tool returns citations, list them. Never invent facts.
-
-              PROBLEM-SOLVING LADDER (follow it, don't just announce it):
-              1. Knowledge questions -> `ask` (the KB). If it says no relevant
-                 information, do NOT stop there.
-              2. Anything live, current, or outside the KB -> `web_search`.
-                 For technical/admin questions, prefer authoritative domains
-                 (learn.microsoft.com, docs sites) in the results.
-              3. If a result looks authoritative and you need its full content,
-                 call `fetch_url` on it. Use `date_utc` for any time/date math.
-              4. Synthesize a concrete, actionable answer with source URLs.
-
-              HARD RULES:
-              - NEVER end your answer with stated intent ("let me check...") —
-                either call the tool and give the result, or say you cannot.
-              - Do not narrate your internal reasoning; output only the final answer.
+            value: "You are a test assistant for the AgenticRAG MCP server. You have 8 tools\nfrom the \"Agentic RAG\" (provider id: agentic-rag) MCP provider:\n\n- ask: full agentic Q&A over the knowledge base; returns answer + citations\n  (optional args: mode \"auto|fast|deep\", max_iterations)\n- search: raw vector search (args: query, limit)\n- web_search: LIVE web search via SearXNG (args: query, limit).\n  Use it for current events, live data (time, weather, news),\n  or anything the knowledge base can't contain. Note: search\n  snippets are CACHED — never trust them for exact time/date.\n              - web_research: DEEP web research (args: query, limit). Multi-engine\n                search then scrapes each page into grouped sections (text +\n                belonging images in document order), bounded, with honest\n                fallbacks, plus a rendered HTML artifact per page. Prefer it\n                over web_search when you need real page content (guides,\n                how-tos, documentation steps), not just snippets.\n- fetch_url: fetch a live web page (args: url, max_chars).\n  For current time/date questions: call fetch_url on any URL\n  and use the returned `date_utc` header as the live UTC clock,\n  then convert to the target timezone (e.g. Hong Kong = UTC+8,\n  no DST). This is accurate; search snippets are not.\n- status: server health, decision layer, source health, index counters\n- sources_list: list registered sources with health\n- sources_add: register a source (type \"local_folder\" needs config.path;\n  type \"sqlite\" needs config.db_path/table/template)\n- sources_sync: manual incremental sync (optional source_id)\n- sources_remove: remove a source by id (destructive — ask the user to\n  confirm, and call sources_list first to get the source_id)\n- graph_query: optional graph search layer; if it returns FeatureDisabled,\n  say so honestly instead of guessing\n\nPick the tool that matches the request, call it, then summarize the result\nfor the user. When a tool returns citations, list them. Never invent facts.\n\nANSWER FORMAT — IMAGES:\n- When research content contains [image: URL] lines that illustrate the steps\n  or facts you are answering with, include the relevant images INLINE in your\n  answer as markdown — ![what it shows](URL) — grouped with the text they\n  belong to, in document order. Dify renders them in the chat. Prefer images\n  that illustrate the specific steps you describe; skip logos and avatars.\n"
           maximum_iterations:
             type: constant
             value: 10
@@ -182,10 +119,13 @@ workflow:
             value:
               completion_params: {}
               mode: chat
+              model: deepseek/deepseek-v4.1-flash
+              model_type: llm
               name: deepseek/deepseek-v4.1-flash
               provider: langgenius/openrouter/openrouter
+              type: model-selector
           query:
-            type: mixed
+            type: constant
             value: '{{#sys.query#}}'
           tools:
             type: constant
@@ -252,11 +192,11 @@ workflow:
               type: mcp
             - enabled: true
               extra:
-                description: 'Optional graph search (Graphify layer); disabled by default.'
+                description: Optional graph search (Graphify layer); disabled by default.
               parameters: {}
               provider_name: agentic-rag
               settings: {}
-              tool_description: 'Optional graph search (Graphify layer); disabled by default.'
+              tool_description: Optional graph search (Graphify layer); disabled by default.
               tool_label: graph_query
               tool_name: graph_query
               type: mcp
@@ -290,15 +230,19 @@ workflow:
               tool_label: fetch_url
               tool_name: fetch_url
               type: mcp
+            - enabled: true
+              extra:
+                description: Deep web research; grouped outline-preserving page sections, bounded, with honest fallbacks and a rendered HTML artifact per page.
+              parameters: {}
+              provider_name: agentic-rag
+              settings: {}
+              tool_description: Deep web research; grouped outline-preserving page sections, bounded, with honest fallbacks and a rendered HTML artifact per page.
+              tool_label: web_research
+              tool_name: web_research
+              type: mcp
         agent_strategy_label: FunctionCalling
         agent_strategy_name: function_calling
         agent_strategy_provider_name: langgenius/agent/agent
-        # Required so the frontend resolves the installed plugin + allows MCP tools:
-        # isSupportMCP(meta.version >= 0.0.2) gates every MCP tool in this node.
-        meta:
-          minimum_dify_version: '1.7.0'
-          version: '0.0.2'
-        plugin_unique_identifier: langgenius/agent:0.0.50@bf1040682cc9e1e5caf9b4670531639c440bf9448025cd5ee0915fdcf7a921f3
         desc: Agentic strategy node wired to all 8 AgenticRAG MCP tools.
         isInIteration: false
         isInLoop: false
@@ -309,12 +253,16 @@ workflow:
           window:
             enabled: false
             size: 10
+        meta:
+          minimum_dify_version: 1.7.0
+          version: 0.0.2
+        plugin_unique_identifier: langgenius/agent:0.0.50@bf1040682cc9e1e5caf9b4670531639c440bf9448025cd5ee0915fdcf7a921f3
         selected: false
         title: Agentic Strategy
         tool_node_version: null
         type: agent
         version: '1'
-      height: 148
+      height: 232
       id: agentic_strategy
       position:
         x: 400
@@ -328,7 +276,6 @@ workflow:
       type: custom
       width: 242
       zIndex: 0
-    # ---- Answer node ----
     - data:
         answer: '{{#agentic_strategy.text#}}'
         desc: Return the agent's response to the user.
@@ -351,7 +298,7 @@ workflow:
       width: 242
       zIndex: 0
     viewport:
-      x: -20
-      y: -30
-      zoom: 0.86
+      x: -63.56123633996327
+      y: 168.83202798547347
+      zoom: 0.6166007566468054
   rag_pipeline_variables: []

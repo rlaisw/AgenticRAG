@@ -1,0 +1,18 @@
+# Docker build context hygiene — the image builds from repo root
+.git/
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+.kilo/
+.kilocode/
+.cocoindex_code/
+graphify-out/cache/
+specs/*/fixtures/
+*.log
+.env*
+.DS_Store
+coverage/
+.coverage

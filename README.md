@@ -28,6 +28,7 @@ Outage behavior: if the decision node is unavailable/invalid/timed-out, the keyw
 | `search` | Direct vector search over LanceDB |
 | `web_search` | Live web via SearXNG (fallback chain: searxng → tavily → exa) |
 | `fetch_url` | Fetch a live page; returns `date_utc` (HTTP Date header = live UTC clock) |
+| `web_research` | Grouped web research: multi-engine search via the provider chain + per-page outline-preserving scrape (text + belonging image in document order), bounded for the LLM, honest snippet fallbacks, inline rendered HTML artifact (spec 003) |
 | `sources_add` / `sources_list` / `sources_remove` / `sources_sync` | Knowledge-base source management (local_folder, sqlite) |
 | `graph_query` | Optional Graphify layer (enable `[features] graphify = true`; build with the graphify skill) |
 | `status` | Decision-node provenance, source health, index counters |
@@ -72,6 +73,13 @@ noul_threshold = 0.5
 [web.searxng]
 url = "http://searxng:8080"  # container-to-container (Docker DNS); host port is 28888 —
                              # see DEPLOY.md Step 5 for the JSON-API settings recipe
+
+[web.research]               # web_research tool bounds (spec 003)
+max_pages = 3                # pages scraped per call (cap 5)
+per_page_chars = 6000        # content bound per page
+fetch_timeout_s = 15.0       # per-page fetch timeout
+overall_timeout_s = 30.0     # end-to-end bound for a research call
+max_concurrent = 4           # parallel page fetches
 
 [features]
 graphify = false            # optional graph-search layer over graphify-out/graph.json
