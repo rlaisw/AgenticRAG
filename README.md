@@ -4,6 +4,8 @@ Agentic retrieval-augmented generation as an MCP server, with a **dual-system wo
 
 Specs: [`specs/001-agentic-rag-mcp/`](specs/001-agentic-rag-mcp/) (server, ingestion, contracts) · [`specs/002-laya-reflexion-nodes/`](specs/002-laya-reflexion-nodes/) (dual-system replacement — supersedes 001's routing/loop design).
 
+> **Deploying to a new host?** Follow [`DEPLOY.md`](DEPLOY.md) — the complete clone-to-verified runbook (install, config, sidecar, Dify wiring, SearXNG, verification, troubleshooting). **Port convention**: host ports avoid the crowded defaults — sidecar **28080**, SearXNG **28888** (container-internal ports stay 8080).
+
 ## Architecture
 
 ```
@@ -66,6 +68,10 @@ model_repo = "convaiinnovations/laya"
 model_dir = ""              # optional local checkpoint dir
 timeout = 12.0              # exceeded => fallback (~7.4s warm on ARM CPU)
 noul_threshold = 0.5
+
+[web.searxng]
+url = "http://searxng:8080"  # container-to-container (Docker DNS); host port is 28888 —
+                             # see DEPLOY.md Step 5 for the JSON-API settings recipe
 
 [features]
 graphify = false            # optional graph-search layer over graphify-out/graph.json
