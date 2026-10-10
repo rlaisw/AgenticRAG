@@ -31,6 +31,8 @@ Outage behavior: if the decision node is unavailable/invalid/timed-out, the keyw
 | `web_research` | Grouped web research: multi-engine search via the provider chain + per-page outline-preserving scrape (text + belonging image in document order), bounded for the LLM, honest snippet fallbacks, inline rendered HTML artifact (spec 003) |
 | `sources_add` / `sources_list` / `sources_remove` / `sources_sync` | Knowledge-base source management (local_folder, sqlite) |
 | `graph_query` | Optional Graphify layer (enable `[features] graphify = true`; build with the graphify skill) |
+| `specialty_search` | Domain-scoped search: results only from a profile's configured authoritative sites (spec 005) |
+| `specialty_profiles` | List available specialty profiles (name, sites, description) — agent calls this first |
 | `status` | Decision-node provenance, source health, index counters |
 
 ## Install
@@ -73,6 +75,9 @@ noul_threshold = 0.5
 [web.searxng]
 url = "http://searxng:28888"  # container-to-container (Docker DNS); host port is 28888 —
                              # see DEPLOY.md Step 5 for the JSON-API settings recipe
+
+[web.specialty]               # specialty_profiles.json path (spec 005)
+# file = ""                # empty = default ~/.config/agentic-rag-mcp/specialty_profiles.json
 
 [web.research]               # web_research tool bounds (spec 003)
 max_pages = 3                # pages scraped per call (cap 5)

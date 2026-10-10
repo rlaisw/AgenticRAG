@@ -81,7 +81,7 @@ description: "Task list for feature implementation"
 
 - [X] T013 Verify clean cutover: `curl -s -m 3 http://localhost:8080/healthz` returns connection refused (FR-007 / SC-006); confirm no container listens on 8080 (`docker ps` port mappings)
 - [X] T014 Run the full 131-test suite to confirm no regression (should pass unchanged — ports are deployment-only)
-- [ ] T015 Commit all changes and push to GitHub
+- [X] T015 Commit all changes and push to GitHub
 
 ---
 

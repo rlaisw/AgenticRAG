@@ -188,6 +188,37 @@ def build_server(cfg: Config | None = None, **fastmcp_kwargs) -> FastMCP:
         return make_web_tool(web_providers)(query, limit=limit)
 
     @mcp.tool()
+    def specialty_profiles() -> dict:
+        """List available specialty search profiles with their sites and descriptions.
+        Call this first to discover which profiles exist, then use specialty_search."""
+        from .search.web.specialty import load_profiles
+
+        path = cfg.specialty_profiles_file or None
+        profiles, error = load_profiles(path, return_error=True)
+        if error:
+            return {"error": error, "profiles": {}}
+        return profiles
+
+    @mcp.tool()
+    def specialty_search(query: str, profile: str, limit: int = 5) -> list[dict] | dict:
+        """Domain-scoped web search: results only from the profile's configured sites.
+        The domain restriction is a hard filter (site: operator + post-filter)."""
+        from .search.web.specialty import (
+            construct_scoped_query, filter_by_domains, load_profiles, resolve_profile,
+        )
+
+        path = cfg.specialty_profiles_file or None
+        profiles, file_error = load_profiles(path, return_error=True)
+        if file_error:
+            return {"error": file_error}                         # FR-004
+        resolved = resolve_profile(profiles, profile)
+        if "error" in resolved:
+            return resolved                                      # FR-007/008
+        scoped_query = construct_scoped_query(resolved["sites"], query)
+        hits, _, _ = search_all(web_providers, scoped_query, limit)
+        return filter_by_domains(hits, resolved["sites"])       # FR-006
+
+    @mcp.tool()
     def web_research(query: str, limit: int = 3) -> dict:
         """Grouped web research: multi-engine search via the provider chain, then a
         per-page outline-preserving scrape (sections keep text + belonging image in

@@ -46,6 +46,10 @@ fallback_order = ["searxng", "tavily", "exa"]
 [web.searxng]
 # url = "http://127.0.0.1:8888"
 
+[web.specialty]
+# file = ""                # path to specialty_profiles.json; empty = default
+                             # (~/.config/agentic-rag-mcp/specialty_profiles.json)
+
 [web.research]
 max_pages = 3                # pages scraped per research call (cap 5)
 per_page_chars = 6000        # content bound per page (FR-007)
@@ -75,6 +79,7 @@ class Config:
     web_tavily_key: str = ""
     web_exa_key: str = ""
     web_searxng_url: str = ""
+    specialty_profiles_file: str = ""
     research_max_pages: int = 3
     research_per_page_chars: int = 6000
     research_fetch_timeout_s: float = 15.0
@@ -117,6 +122,7 @@ def load_config(path: Path | None = None) -> Config:
         web_tavily_key=_get(raw, "web", "tavily", "api_key", default=""),
         web_exa_key=_get(raw, "web", "exa", "api_key", default=""),
         web_searxng_url=_get(raw, "web", "searxng", "url", default=""),
+        specialty_profiles_file=_get(raw, "web", "specialty", "file", default=""),
         research_max_pages=min(5, int(_get(raw, "web", "research", "max_pages", default=3))),  # cap 5
         research_per_page_chars=int(_get(raw, "web", "research", "per_page_chars", default=6000)),
         research_fetch_timeout_s=float(_get(raw, "web", "research", "fetch_timeout_s", default=15.0)),
