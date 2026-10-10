@@ -7,7 +7,7 @@ services:
       dockerfile: dify/docker/mcp-server/Dockerfile
     container_name: agentic-rag
     ports:
-      - "28080:8080"                      # optional: host testing (28080 avoids the crowded 8080)
+      - "28080:28080"                      # optional: host testing (28080 avoids the crowded 8080)
     volumes:
       - ~/.config/agentic-rag-mcp:/root/.config/agentic-rag-mcp  # config + LanceDB state
       - ~/.cache/huggingface:/root/.cache/huggingface            # decision-model + embedder checkpoints

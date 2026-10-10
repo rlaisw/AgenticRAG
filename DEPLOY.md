@@ -8,8 +8,8 @@ clone has no config, no LanceDB data, no model checkpoints. Everything below
 recreates them.
 
 **Port convention (memorize)**: avoid the crowded common ports on the HOST —
-use **28080** for the AgenticRAG sidecar and **28888** for SearXNG. Container-internal
-ports stay 8080 in both cases. Full topology: [`docs/NETWORK.md`](docs/NETWORK.md).
+use **28080** for the AgenticRAG sidecar and **28888** for SearXNG. Container ports are
+aligned: the number you see IS the port everywhere (host = container). Full topology: [`docs/NETWORK.md`](docs/NETWORK.md).
 
 ## Step 0 — Prerequisites (verify before starting)
 
@@ -42,7 +42,7 @@ timeout = 12.0   # MUST exceed measured warm decision latency on this host.
                  # ~140 ms on Apple Silicon; ~7.4 s on a small ARM cloud CPU.
 
 [web.searxng]
-url = "http://searxng:8080"   # container-to-container via Docker DNS (Step 5);
+url = "http://searxng:28888"   # container-to-container via Docker DNS (Step 5);
                               # the host port 28888 is NOT used here.
 ```
 
@@ -57,13 +57,13 @@ docker run -d --name agentic-rag \
   --network <DIFY_NETWORK> \
   -v ~/.config/agentic-rag-mcp:/root/.config/agentic-rag-mcp \
   -v ~/.cache/huggingface:/root/.cache/huggingface \
-  -p 28080:8080 \
+  -p 28080:28080 \
   --restart always \
   agentic-rag-mcp:latest
 ```
 
-Port rule: `-p 28080:8080` maps HOST 28080 → CONTAINER 8080. Host checks use
-`localhost:28080`; containers on the Docker network use `agentic-rag:8080`.
+Port rule: `-p 28080:28080` maps HOST 28080 → CONTAINER 8080. Host checks use
+`localhost:28080`; containers on the Docker network use `agentic-rag:28080`.
 `agentic-rag:28080` does NOT exist.
 
 ## Step 4 — Dify integration (only if this host runs Dify)
@@ -74,7 +74,7 @@ Port rule: `-p 28080:8080` maps HOST 28080 → CONTAINER 8080. Host checks use
 2. **SSRF allowlist (without this Dify shows "Cannot connect to MCP server")**:
    in the Dify compose `.env` add
    `SSRF_PROXY_ALLOW_PRIVATE_DOMAINS=agentic-rag`, then `docker compose up -d ssrf_proxy`.
-3. Dify UI → Tools → MCP → Add Server: `http://agentic-rag:8080/mcp`
+3. Dify UI → Tools → MCP → Add Server: `http://agentic-rag:28080/mcp`
    (container-internal port — do NOT use 28080 here), no headers, no Dynamic
    Client Registration.
 4. Import the chatflow: `AgenticRAG/dify/Chatflow Basic (AgenticRAG Agent).yml`
@@ -104,7 +104,7 @@ EOF
 
 docker run -d --name searxng \
   -v ~/searxng:/etc/searxng \
-  -p 28888:8080 \
+  -p 28888:28888 \
   --restart unless-stopped \
   searxng/searxng
 docker network connect <DIFY_NETWORK> searxng
@@ -112,7 +112,7 @@ docker network connect <DIFY_NETWORK> searxng
 
 Verify: `curl -s "http://localhost:28888/search?q=test&format=json" -o /dev/null -w "%{http_code}"`
 → must be 200 (403 = JSON not enabled). The sidecar reaches SearXNG via
-`http://searxng:8080` inside the Docker network — the host port is only for
+`http://searxng:28888` inside the Docker network — the host port is only for
 your testing. First query after container recreation is slow (engines warm up).
 
 ## Step 6 — Ingest sources (LanceDB starts empty)
@@ -138,8 +138,8 @@ curl -s -X POST localhost:28080/mcp -H 'Content-Type: application/json' \
 | Symptom | Cause | Fix |
 |---|---|---|
 | Dify: "Cannot connect to MCP server" | SSRF proxy blocks private targets | Step 4.2 allowlist + restart ssrf_proxy |
-| `agentic-rag:28080` refused from a container | Wrong path | Container-to-container is always `:8080` |
-| `localhost:8080` refused on host | Port was freed deliberately | Use `localhost:28080` |
+| `agentic-rag:28080` refused from a container | Wrong path | Container-to-container port = host port (aligned) |
+| `localhost:8080` refused on host (old port, now gone) | Old port freed by alignment | Use `localhost:28080` |
 | Dify save/edit of MCP server → 500 | Dify identifier-vs-UUID bug | Delete the entry, re-add |
 | Every decision is `provenance: "fallback"` | timeout too small for this host | Raise `[decider] timeout` above measured latency |
 | `web_search` returns empty | No SearXNG / JSON disabled / not on network | Step 5 (settings.yml + network + 200 check) |

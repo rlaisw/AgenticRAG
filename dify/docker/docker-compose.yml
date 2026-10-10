@@ -4,7 +4,7 @@
 # Build the image first, from the AgenticRAG repo root:
 #   docker build -f dify/docker/mcp-server/Dockerfile -t agentic-rag-mcp:latest .
 #
-# Dify UI (Tools > MCP):  URL http://agentic-rag:8080/mcp  (or /sse for legacy)
+# Dify UI (Tools > MCP):  URL http://agentic-rag:28080/mcp  (or /sse for legacy)
 # NEVER use localhost/127.0.0.1/host.docker.internal — Dify reaches the
 # sidecar via Docker DNS name only.
 #

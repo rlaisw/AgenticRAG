@@ -4,7 +4,7 @@ Agentic retrieval-augmented generation as an MCP server, with a **dual-system wo
 
 Specs: [`specs/001-agentic-rag-mcp/`](specs/001-agentic-rag-mcp/) (server, ingestion, contracts) · [`specs/002-laya-reflexion-nodes/`](specs/002-laya-reflexion-nodes/) (dual-system replacement — supersedes 001's routing/loop design).
 
-> **Deploying to a new host?** Follow [`DEPLOY.md`](DEPLOY.md) — the complete clone-to-verified runbook (install, config, sidecar, Dify wiring, SearXNG, verification, troubleshooting). **Port convention**: host ports avoid the crowded defaults — sidecar **28080**, SearXNG **28888** (container-internal ports stay 8080).
+> **Deploying to a new host?** Follow [`DEPLOY.md`](DEPLOY.md) — the complete clone-to-verified runbook (install, config, sidecar, Dify wiring, SearXNG, verification, troubleshooting). **Port convention**: host ports avoid the crowded defaults — sidecar **28080**, SearXNG **28888** (aligned: container port = host port).
 
 ## Architecture
 
@@ -55,10 +55,10 @@ docker build -f dify/docker/mcp-server/Dockerfile -t agentic-rag-mcp:latest .
 docker run -d --name agentic-rag --network <dify_network> \
   -v ~/.config/agentic-rag-mcp:/root/.config/agentic-rag-mcp \
   -v ~/.cache/huggingface:/root/.cache/huggingface \
-  -p 28080:8080 --restart always agentic-rag-mcp:latest
+  -p 28080:28080 --restart always agentic-rag-mcp:latest
 ```
 
-Dify UI → Tools → MCP → URL `http://agentic-rag:8080/mcp` (container-internal port stays 8080; the host publishes **28080**, so host-side checks use `http://localhost:28080/healthz`). Edit MCP servers by delete + re-add (Dify 1.17's edit path has an identifier-vs-UUID bug).
+Dify UI → Tools → MCP → URL `http://agentic-rag:28080/mcp` (container port aligned; the host also publishes **28080**, so host-side checks use `http://localhost:28080/healthz`). Edit MCP servers by delete + re-add (Dify 1.17's edit path has an identifier-vs-UUID bug).
 
 ## Configuration
 
@@ -71,7 +71,7 @@ timeout = 12.0              # exceeded => fallback (~7.4s warm on ARM CPU)
 noul_threshold = 0.5
 
 [web.searxng]
-url = "http://searxng:8080"  # container-to-container (Docker DNS); host port is 28888 —
+url = "http://searxng:28888"  # container-to-container (Docker DNS); host port is 28888 —
                              # see DEPLOY.md Step 5 for the JSON-API settings recipe
 
 [web.research]               # web_research tool bounds (spec 003)

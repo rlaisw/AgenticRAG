@@ -7,7 +7,7 @@ onto a Dify-compatible surface, per the Dify MCP Sidecar procedure:
   - POST /mcp            -> Streamable HTTP (recommended for Dify)
   - GET /sse + POST /messages/  -> legacy SSE fallback
   - GET /healthz         -> container health check
-  - binds 0.0.0.0:8080   -> reachable via Docker DNS (http://agentic-rag:8080/mcp)
+  - binds 0.0.0.0:28080  -> reachable via Docker DNS (http://agentic-rag:28080/mcp)
 
 Run locally:  .venv/bin/python dify/docker/mcp-server/server.py
 Run in Docker: see Dockerfile next to this file.
@@ -36,7 +36,7 @@ from agentic_rag_mcp.config import load_config
 from agentic_rag_mcp.server import build_server
 
 HOST = os.environ.get("MCP_HOST", "0.0.0.0")
-PORT = int(os.environ.get("MCP_PORT", "8080"))
+PORT = int(os.environ.get("MCP_PORT", "28080"))
 
 # stateless_http=True is required so Dify can send stateless requests
 # without session-management errors.
@@ -47,7 +47,7 @@ sse = mcp.sse_app()                     # registers GET /sse, POST /messages/
 
 
 async def healthz(request) -> JSONResponse:
-    """Container health check (docker exec ... curl http://agentic-rag:8080/healthz)."""
+    """Container health check (docker exec ... curl http://agentic-rag:28080/healthz)."""
     return JSONResponse({"status": "ok"})
 
 

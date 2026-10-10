@@ -18,5 +18,5 @@ RUN python -c "from sentence_transformers import SentenceTransformer as S; S('al
 
 COPY dify/docker/mcp-server/server.py ./server.py
 
-EXPOSE 8080
+EXPOSE 28080
 CMD ["python", "server.py"]
