@@ -20,7 +20,7 @@ question ──► System 1: embedded Laya decision model (one pass, no text gen
 
 Outage behavior: if the decision node is unavailable/invalid/timed-out, the keyword heuristic routes and responses are marked `provenance: "fallback"` (FR-003 of spec 002).
 
-## MCP tools (10)
+## MCP tools (13)
 
 | Tool | Purpose |
 |---|---|
@@ -50,7 +50,7 @@ agentic-rag-mcp --init   # writes ~/.config/agentic-rag-mcp/config.toml
 
 ## Dify integration
 
-A stateless-HTTP sidecar for Dify ships in [`dify/`](dify/): Dockerfile, compose fragments (Dify networks + HF-cache mount), and a ready-to-import 10-tool chatflow DSL (`dify/Chatflow Basic (AgenticRAG Agent).yml`). Build and run:
+A stateless-HTTP sidecar for Dify ships in [`dify/`](dify/): Dockerfile, compose fragments (Dify networks + HF-cache mount), and a ready-to-import 13-tool chatflow DSL (`dify/Chatflow Basic (AgenticRAG Agent).yml`). Build and run:
 
 ```bash
 docker build -f dify/docker/mcp-server/Dockerfile -t agentic-rag-mcp:latest .
