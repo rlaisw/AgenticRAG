@@ -78,7 +78,7 @@ def test_expired_credential_marks_source_degraded(tmp_path):
     store = StateStore(tmp_path / "s.sqlite3")
     sid = store.add_source("onedrive", {"client_id": "x"})
     with pytest.raises(SourceAuthError):
-        OneDriveSource(Expired()).files()
+        OneDriveSource(Expired(), {"client_id": "x"}).delta()
     store.set_health(sid, "degraded", "auth_expired")
     src = store.get_source(sid)
     assert src["health"] == "degraded" and src["health_reason"] == "auth_expired"

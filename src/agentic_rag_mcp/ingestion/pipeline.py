@@ -70,6 +70,54 @@ class IngestionPipeline:
         self.state.set_health(source_id, "healthy", None)
         return stats
 
+    def sync_onedrive(self, source_id: str, source) -> dict:
+        """Sync a OneDrive source: delta → download → parse → embed (FR-005..FR-014).
+
+        `source` is an OneDriveSource instance with a .sync(state) method that
+        returns {added, updated, deleted, skipped, delta_link}. The pipeline
+        ingests new/changed files and evicts deleted ones (spec-002 eviction).
+        """
+        existing = self.state.get_source(source_id) or {}
+        prev_state = existing.get("sync_state", {})
+        result = source.sync(state=prev_state)
+
+        stats = {"added": 0, "updated": 0, "deleted": 0, "skipped": result["skipped"]}
+        for entry in result["added"] + result["updated"]:
+            try:
+                text = entry["content"].decode("utf-8", errors="replace")
+            except Exception:
+                text = str(entry["content"])
+            doc_id, outcome = self.state.upsert_document(
+                content_hash=content_hash(text),
+                title=entry["title"],
+                extracted_text=text,
+                media_type=entry.get("media_type", "onedrive"),
+                source_id=source_id,
+                locator=entry["locator"],
+            )
+            self.vectors.upsert_document(
+                collection=self.collection,
+                document_id=doc_id,
+                title=entry["title"],
+                text=text,
+                embedder=self.embedder,
+            )
+            if outcome == "created":
+                stats["added"] += 1
+            else:
+                stats["updated"] += 1
+
+        for removed in result["deleted"]:
+            doc = self.state.remove_origin(source_id, removed["locator"])
+            if doc:
+                self.vectors.delete_document(self.collection, doc)
+            stats["deleted"] += 1
+
+        # persist delta-link cursor for the next incremental sync (FR-009)
+        self.state.set_sync_state(source_id, {"delta_link": result["delta_link"]})
+        self.state.set_health(source_id, "healthy", None)
+        return stats
+
     def sync_sqlite(self, source_id: str, source) -> dict:
         stats = {"added": 0, "updated": 0, "deleted": 0, "skipped": []}
         seen = set()

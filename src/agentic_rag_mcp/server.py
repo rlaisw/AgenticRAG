@@ -267,7 +267,7 @@ def build_server(cfg: Config | None = None, **fastmcp_kwargs) -> FastMCP:
 
     @mcp.tool()
     def sources_add(type: str, config: dict) -> dict:
-        """Register a source. Types: local_folder, sqlite."""
+        """Register a source. Types: local_folder, sqlite, onedrive."""
         if type == "local_folder":
             source_id = state.add_source(type, config)
             stats = pipeline.sync_local_folder(source_id, config["path"])
@@ -276,9 +276,97 @@ def build_server(cfg: Config | None = None, **fastmcp_kwargs) -> FastMCP:
             stats = pipeline.sync_sqlite(
                 source_id, SqliteSource(config["db_path"], config["table"],
                                         config.get("template", "{row}")))
+        elif type == "onedrive":
+            from pathlib import Path as _P
+            from .sources.graph_auth import GraphAuth
+            from .sources.onedrive import OneDriveSource
+
+            if not config.get("client_id"):
+                raise NotFoundError("onedrive source requires config.client_id")
+            source_id = state.add_source(type, {
+                "client_id": config["client_id"],
+                "folder_path": config.get("folder_path", "/"),
+                "include_subfolders": config.get("include_subfolders", True),
+                "max_file_size_mb": config.get("max_file_size_mb", 50),
+            })
+            token_path = _P.home() / ".config/agentic-rag-mcp/tokens" / f"{source_id}.json"
+            auth = GraphAuth(config["client_id"], token_path)
+            try:
+                auth.token()  # check for existing valid token (FR-002)
+            except Exception:  # noqa: BLE001 — no token yet is expected for new sources
+                state.set_health(source_id, "degraded", "needs sign-in")
+                return {"source_id": source_id, "status": "needs_auth",
+                        "message": "Call sources_auth to complete Microsoft sign-in."}
+            source = OneDriveSource(auth, config)
+            try:
+                stats = pipeline.sync_onedrive(source_id, source)
+            except Exception as exc:  # noqa: BLE001 — sync failure marks degraded, doesn't crash
+                state.set_health(source_id, "degraded", str(exc))
+                return {"source_id": source_id, "status": "ok", "sync": {"error": str(exc)}}
         else:
             raise NotFoundError(f"unsupported source type for manual add: {type}")
         return {"source_id": source_id, "status": "ok", "sync": stats}
+
+    @mcp.tool()
+    def sources_auth(source_id: str) -> dict:
+        """Complete Microsoft sign-in for a OneDrive source (device code flow).
+        Returns the sign-in URL and user code; the connection completes in the
+        background after the user signs in. Call again to check status."""
+        import threading
+        from pathlib import Path as _P
+        from .sources.graph_auth import GraphAuth
+
+        sources = state.get_source(source_id)
+        if not sources:
+            raise NotFoundError(f"source not found: {source_id}")
+        if sources["type"] != "onedrive":
+            raise NotFoundError(f"source {source_id} is not a onedrive source")
+        client_id = sources["config"]["client_id"]
+        token_path = _P.home() / ".config/agentic-rag-mcp/tokens" / f"{source_id}.json"
+        auth = GraphAuth(client_id, token_path)
+
+        try:
+            auth.token()  # already authenticated (FR-003: already_authenticated)
+            return {"status": "already_authenticated",
+                    "message": "This source has a valid token."}
+        except Exception:  # noqa: BLE001 — needs sign-in
+            pass
+
+        # initiate device flow non-blocking (research.md D3)
+        def _complete_sign_in():
+            try:
+                auth.device_sign_in()
+                state.set_health(source_id, "healthy", None)
+                # trigger a sync after successful auth
+                from .sources.onedrive import OneDriveSource
+                source = OneDriveSource(auth, sources["config"])
+                try:
+                    pipeline.sync_onedrive(source_id, source)
+                except Exception:  # noqa: BLE001 — best-effort sync after auth
+                    pass
+            except Exception as exc:  # noqa: BLE001
+                state.set_health(source_id, "degraded", str(exc))
+
+        # start the flow to get the URL+code
+        try:
+            flow = auth._app.initiate_device_flow(scopes=auth.__class__.SCOPES
+                                                    if hasattr(auth.__class__, "SCOPES")
+                                                    else ["Files.Read"])
+        except Exception as exc:  # noqa: BLE001
+            return {"status": "error", "message": f"failed to start sign-in: {exc}"}
+
+        if "user_code" not in flow:
+            return {"status": "error", "message": "device flow failed to start"}
+
+        # return URL+code immediately; background thread waits for completion
+        threading.Thread(target=_complete_sign_in, daemon=True).start()
+        return {
+            "status": "sign_in_required",
+            "sign_in_url": flow.get("verification_uri", "https://microsoft.com/devicelogin"),
+            "user_code": flow["user_code"],
+            "message": "Visit the URL, enter the code, and sign in with your Microsoft "
+                       "account. The connection completes automatically.",
+        }
 
     @mcp.tool()
     def sources_list() -> list[dict]:

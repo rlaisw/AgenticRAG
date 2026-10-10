@@ -20,7 +20,7 @@ question ──► System 1: embedded Laya decision model (one pass, no text gen
 
 Outage behavior: if the decision node is unavailable/invalid/timed-out, the keyword heuristic routes and responses are marked `provenance: "fallback"` (FR-003 of spec 002).
 
-## MCP tools (13)
+## MCP tools (14)
 
 | Tool | Purpose |
 |---|---|
@@ -29,10 +29,11 @@ Outage behavior: if the decision node is unavailable/invalid/timed-out, the keyw
 | `web_search` | Live web via SearXNG (fallback chain: searxng → tavily → exa) |
 | `fetch_url` | Fetch a live page; returns `date_utc` (HTTP Date header = live UTC clock) |
 | `web_research` | Grouped web research: multi-engine search via the provider chain + per-page outline-preserving scrape (text + belonging image in document order), bounded for the LLM, honest snippet fallbacks, inline rendered HTML artifact (spec 003) |
-| `sources_add` / `sources_list` / `sources_remove` / `sources_sync` | Knowledge-base source management (local_folder, sqlite) |
+| `sources_add` / `sources_list` / `sources_remove` / `sources_sync` | Knowledge-base source management (local_folder, sqlite, onedrive) |
 | `graph_query` | Optional Graphify layer (enable `[features] graphify = true`; build with the graphify skill) |
 | `specialty_search` | Domain-scoped search: results only from a profile's configured authoritative sites (spec 005) |
 | `specialty_profiles` | List available specialty profiles (name, sites, description) — agent calls this first |
+| `sources_auth` | Complete Microsoft sign-in for OneDrive sources (device code flow) |
 | `status` | Decision-node provenance, source health, index counters |
 
 ## Install
@@ -50,7 +51,7 @@ agentic-rag-mcp --init   # writes ~/.config/agentic-rag-mcp/config.toml
 
 ## Dify integration
 
-A stateless-HTTP sidecar for Dify ships in [`dify/`](dify/): Dockerfile, compose fragments (Dify networks + HF-cache mount), and a ready-to-import 13-tool chatflow DSL (`dify/Chatflow Basic (AgenticRAG Agent).yml`). Build and run:
+A stateless-HTTP sidecar for Dify ships in [`dify/`](dify/): Dockerfile, compose fragments (Dify networks + HF-cache mount), and a ready-to-import 14-tool chatflow DSL (`dify/Chatflow Basic (AgenticRAG Agent).yml`). Build and run:
 
 ```bash
 docker build -f dify/docker/mcp-server/Dockerfile -t agentic-rag-mcp:latest .

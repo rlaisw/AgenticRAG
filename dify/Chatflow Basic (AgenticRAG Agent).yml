@@ -260,6 +260,16 @@ workflow:
               tool_label: specialty_profiles
               tool_name: specialty_profiles
               type: mcp
+            - enabled: true
+              extra:
+                description: Complete Microsoft sign-in for OneDrive sources (device code flow). Returns the sign-in URL and user code; relay both to the user.
+              parameters: {}
+              provider_name: agentic-rag
+              settings: {}
+              tool_description: Complete Microsoft sign-in for OneDrive sources (device code flow). Returns the sign-in URL and user code; relay both to the user.
+              tool_label: sources_auth
+              tool_name: sources_auth
+              type: mcp
         agent_strategy_label: FunctionCalling
         agent_strategy_name: function_calling
         agent_strategy_provider_name: langgenius/agent/agent

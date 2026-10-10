@@ -1,4 +1,4 @@
-"""Graph connectors with mocked MSAL + Graph API."""
+"""Graph connectors with mocked MSAL + Graph API (spec 001 auth tests, updated for delta API)."""
 
 import pytest
 import respx
@@ -19,13 +19,16 @@ class ExpiredAuth:
 
 
 @respx.mock
-def test_onedrive_lists_files():
-    respx.get("https://graph.microsoft.com/v1.0/me/drive/root/children").mock(
+def test_onedrive_delta_lists_files():
+    """Delta query returns files with pagination followed."""
+    respx.get("https://graph.microsoft.com/v1.0/me/drive/root/delta").mock(
         return_value=httpx.Response(200, json={"value": [
             {"id": "1", "name": "report.docx", "file": {},
-             "@microsoft.graph.downloadUrl": "https://dl/1"}]}))
-    files = OneDriveSource(FakeAuth()).files()
-    assert files[0]["title"] == "report.docx"
+             "@microsoft.graph.downloadUrl": "https://dl/1", "size": 500}],
+            "@odata.deltaLink": "https://g/d/next"}))
+    result = OneDriveSource(FakeAuth(), {}).delta()
+    assert result["items"][0]["name"] == "report.docx"
+    assert result["delta_link"] == "https://g/d/next"
 
 
 @respx.mock
@@ -38,12 +41,12 @@ def test_sharepoint_401_raises_auth_error():
 
 def test_expired_token_propagates():
     with pytest.raises(SourceAuthError):
-        OneDriveSource(ExpiredAuth()).files()
+        OneDriveSource(ExpiredAuth(), {}).delta()
 
 
 @respx.mock
 def test_network_error_is_provider_error():
-    respx.get("https://graph.microsoft.com/v1.0/me/drive/root/children").mock(
+    respx.get("https://graph.microsoft.com/v1.0/me/drive/root/delta").mock(
         side_effect=httpx.ConnectError("down"))
     with pytest.raises(ProviderError):
-        OneDriveSource(FakeAuth()).files()
+        OneDriveSource(FakeAuth(), {}).delta()

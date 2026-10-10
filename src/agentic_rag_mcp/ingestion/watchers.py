@@ -32,6 +32,15 @@ class Watcher:
                         sid,
                         SqliteSource(cfg["db_path"], cfg["table"], cfg.get("template", "{row}")),
                     )
+                elif source["type"] == "onedrive":
+                    from pathlib import Path
+                    from ..sources.graph_auth import GraphAuth
+                    from ..sources.onedrive import OneDriveSource
+
+                    token_path = Path.home() / ".config/agentic-rag-mcp/tokens" / f"{sid}.json"
+                    auth = GraphAuth(cfg["client_id"], token_path)
+                    source_obj = OneDriveSource(auth, cfg)
+                    results[sid] = self._pipeline.sync_onedrive(sid, source_obj)
             except Exception as exc:  # noqa: BLE001 - isolate per-source failures
                 self._state.set_health(sid, "degraded", str(exc))
                 results[sid] = {"error": str(exc)}
