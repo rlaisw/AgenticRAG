@@ -23,8 +23,8 @@ description: "Task list for feature implementation"
 
 **Purpose**: Config surface + the JSON profiles file
 
-- [ ] T001 Add `[web.specialty]` to src/agentic_rag_mcp/config.py + DEFAULT_CONFIG per research.md D10: `file = ""` (empty = default path `~/.config/agentic-rag-mcp/specialty_profiles.json`)
-- [ ] T002 [P] Create the user-managed profiles file at ~/.config/agentic-rag-mcp/specialty_profiles.json with the 4 confirmed profiles (microsoft, huawei, vibe_coding, ai) per the user's confirmation — see spec Clarifications for the exact JSON content
+- [X] T001 Add `[web.specialty]` to src/agentic_rag_mcp/config.py + DEFAULT_CONFIG per research.md D10: `file = ""` (empty = default path `~/.config/agentic-rag-mcp/specialty_profiles.json`)
+- [X] T002 [P] Create the user-managed profiles file at ~/.config/agentic-rag-mcp/specialty_profiles.json with the 4 confirmed profiles (microsoft, huawei, vibe_coding, ai) per the user's confirmation — see spec Clarifications for the exact JSON content
 
 ---
 
@@ -36,13 +36,13 @@ description: "Task list for feature implementation"
 
 ### Tests for User Story 1 (all RED before implementation)
 
-- [ ] T003 [P] [US1] Write failing unit tests tests/unit/test_specialty.py for src/agentic_rag_mcp/search/web/specialty.py: profile loading (missing file → error, malformed JSON → error, case-insensitive lookup "Microsoft" = "microsoft", empty sites → error); site normalization (strip https://, path, www., lowercase — data-model.md table); query construction ("site:a OR site:b query" — research.md D3); domain post-filter (substring: "microsoft.com" matches "learn.microsoft.com" — research.md D4); every error path in the D6 matrix
-- [ ] T004 [P] [US1] Write failing contract tests tests/contract/test_specialty_contract.py: specialty_search response shape pin (frozen fields title/url/snippet + engine provenance); specialty_profiles response shape; existing tool canary (the 131-test suite's web_search/web_research tests pass unchanged — SC-004)
+- [X] T003 [P] [US1] Write failing unit tests tests/unit/test_specialty.py for src/agentic_rag_mcp/search/web/specialty.py: profile loading (missing file → error, malformed JSON → error, case-insensitive lookup "Microsoft" = "microsoft", empty sites → error); site normalization (strip https://, path, www., lowercase — data-model.md table); query construction ("site:a OR site:b query" — research.md D3); domain post-filter (substring: "microsoft.com" matches "learn.microsoft.com" — research.md D4); every error path in the D6 matrix
+- [X] T004 [P] [US1] Write failing contract tests tests/contract/test_specialty_contract.py: specialty_search response shape pin (frozen fields title/url/snippet + engine provenance); specialty_profiles response shape; existing tool canary (the 131-test suite's web_search/web_research tests pass unchanged — SC-004)
 
 ### Implementation for User Story 1
 
-- [ ] T005 [US1] Implement src/agentic_rag_mcp/search/web/specialty.py per research.md D1-D6 + data-model.md: load_profiles(path) (JSON read per call — hot-reload), normalize_site(entry) (strip scheme/path/www/lowercase), construct_scoped_query(sites, query) ("site:a OR site:b query"), filter_by_domains(results, sites) (substring FR-006), resolve_profile(profiles, name) (case-insensitive FR-003), error responses per D6 matrix
-- [ ] T006 [US1] Add `specialty_search` + `specialty_profiles` MCP tools to src/agentic_rag_mcp/server.py per contracts/specialty-search-tool.md: `specialty_search(query, profile, limit=5)` uses search_all with the scoped query + post-filter; `specialty_profiles()` returns the JSON file content verbatim
+- [X] T005 [US1] Implement src/agentic_rag_mcp/search/web/specialty.py per research.md D1-D6 + data-model.md: load_profiles(path) (JSON read per call — hot-reload), normalize_site(entry) (strip scheme/path/www/lowercase), construct_scoped_query(sites, query) ("site:a OR site:b query"), filter_by_domains(results, sites) (substring FR-006), resolve_profile(profiles, name) (case-insensitive FR-003), error responses per D6 matrix
+- [X] T006 [US1] Add `specialty_search` + `specialty_profiles` MCP tools to src/agentic_rag_mcp/server.py per contracts/specialty-search-tool.md: `specialty_search(query, profile, limit=5)` uses search_all with the scoped query + post-filter; `specialty_profiles()` returns the JSON file content verbatim
 
 **Checkpoint**: MVP — specialty search live, contract-tested, all error paths covered
 
@@ -56,11 +56,11 @@ description: "Task list for feature implementation"
 
 ### Tests for User Story 2
 
-- [ ] T007 [P] [US2] Write failing integration tests tests/integration/test_specialty_integration.py: specialty_search via build_server with a FakeProvider returning mixed-domain URLs → only profile-domain results survive the filter; hot-reload: write a new profile to a tmp JSON file → immediately usable on the next call (no restart — SC-002); 0 scoped results → honest empty `[]` (no general fallback — Constitution IV)
+- [X] T007 [P] [US2] Write failing integration tests tests/integration/test_specialty_integration.py: specialty_search via build_server with a FakeProvider returning mixed-domain URLs → only profile-domain results survive the filter; hot-reload: write a new profile to a tmp JSON file → immediately usable on the next call (no restart — SC-002); 0 scoped results → honest empty `[]` (no general fallback — Constitution IV)
 
 ### Implementation for User Story 2
 
-- [ ] T008 [US2] Make T007 pass (run and fix until green)
+- [X] T008 [US2] Make T007 pass (run and fix until green)
 
 **Checkpoint**: End-to-end verified — scoped results, hot-reload, honest empties
 
@@ -74,7 +74,7 @@ description: "Task list for feature implementation"
 
 ### Implementation for User Story 3
 
-- [ ] T009 [P] [US3] Update dify/Chatflow Basic (AgenticRAG Agent).yml: add `specialty_search` + `specialty_profiles` tool entries (frontend 9-key shape) + update the instruction: "For domain-specific questions, call specialty_profiles() first to see available profiles, then call BOTH specialty_search AND web_search — combine results with specialty as primary authority"
+- [X] T009 [P] [US3] Update dify/Chatflow Basic (AgenticRAG Agent).yml: add `specialty_search` + `specialty_profiles` tool entries (frontend 9-key shape) + update the instruction: "For domain-specific questions, call specialty_profiles() first to see available profiles, then call BOTH specialty_search AND web_search — combine results with specialty as primary authority"
 
 **Checkpoint**: Chatflow DSL ready; Dify deployment is in Polish
 
@@ -82,10 +82,10 @@ description: "Task list for feature implementation"
 
 ## Phase 5: Polish & Cross-Cutting Concerns
 
-- [ ] T010 [P] Update README.md: specialty_search + specialty_profiles in the tool table (12→13 tools), [web.specialty] config block, example specialty_profiles.json snippet
-- [ ] T011 Full suite green: `.venv/bin/python -m pytest tests/ -q` — all 131 pre-existing + new specialty tests passing
-- [ ] T012 Create ~/.config/agentic-rag-mcp/specialty_profiles.json on the live host if not already there (T002), rebuild the sidecar image, recreate the container, refresh Dify's MCP tool cache (12→13 tools), verify via quickstart.md S1–S6
-- [ ] T013 Commit all changes and push to GitHub
+- [X] T010 [P] Update README.md: specialty_search + specialty_profiles in the tool table (12→13 tools), [web.specialty] config block, example specialty_profiles.json snippet
+- [X] T011 Full suite green: `.venv/bin/python -m pytest tests/ -q` — all 131 pre-existing + new specialty tests passing
+- [X] T012 Create ~/.config/agentic-rag-mcp/specialty_profiles.json on the live host if not already there (T002), rebuild the sidecar image, recreate the container, refresh Dify's MCP tool cache (12→13 tools), verify via quickstart.md S1–S6
+- [X] T013 Commit all changes and push to GitHub
 
 ---
 

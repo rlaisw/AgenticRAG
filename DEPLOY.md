@@ -122,6 +122,29 @@ via any MCP client or curl: `sources_add {"type": "local_folder", "config":
 {"path": "/data/your-docs"}}`. Auto-update: the watcher re-syncs every 5
 minutes; `sources_sync` for instant. Verify with `sources_list` → `healthy`.
 
+## Step 6b — Specialty search profiles (optional, for domain-scoped questions)
+
+Create `~/.config/agentic-rag-mcp/specialty_profiles.json` with your domain profiles:
+
+```bash
+cat > ~/.config/agentic-rag-mcp/specialty_profiles.json <<'EOF2'
+{
+  "microsoft": {
+    "sites": ["learn.microsoft.com", "techcommunity.microsoft.com"],
+    "description": "Microsoft product documentation and community"
+  },
+  "huawei": {
+    "sites": ["support.huawei.com", "forum.huawei.com"],
+    "description": "Huawei networking and enterprise products"
+  }
+}
+EOF2
+```
+
+Hot-reloaded: edit the file at any time — new profiles are usable on the very
+next search call, no restart needed. The Dify agent calls `specialty_profiles()`
+first to discover available topics, then picks the right profile for the question.
+
 ## Step 7 — Verify (the 5-minute battery)
 
 ```bash
